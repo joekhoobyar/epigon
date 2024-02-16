@@ -7,8 +7,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github/joekhoobyar/wannabe/storage"
-	"github/joekhoobyar/wannabe/test"
+	"github/joekhoobyar/epigon/storage"
+	"github/joekhoobyar/epigon/test"
 )
 
 var _ = Describe("FixtureStorage", func() {

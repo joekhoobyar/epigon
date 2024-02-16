@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github/joekhoobyar/wannabe/storage"
+	"github/joekhoobyar/epigon/storage"
 )
 
 var _ = Describe("InMemoryCache", func() {

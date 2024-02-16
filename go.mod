@@ -1,4 +1,4 @@
-module github/joekhoobyar/wannabe
+module github/joekhoobyar/epigon
 
 go 1.20
 
