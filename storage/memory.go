@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"path"
+	"slices"
 	"strings"
 )
 
@@ -17,14 +18,18 @@ func NewInMemoryCache() *InMemoryCache {
 	}
 }
 
-func (f *InMemoryCache) Clear() {
-	f.cache = map[string]record{}
+func (m *InMemoryCache) Clear() {
+	m.cache = map[string]record{}
 }
 
-func (f *InMemoryCache) Read(location string) (data []byte, err error) {
+func (m *InMemoryCache) Reset() {
+	m.cache = map[string]record{}
+}
+
+func (m *InMemoryCache) Read(location string) (data []byte, err error) {
 	if strings.HasSuffix(location, "/") {
 		err = fmt.Errorf("Read: %s: location does not identify an object", location)
-	} else if r, ok := f.cache[location]; !ok {
+	} else if r, ok := m.cache[location]; !ok {
 		err = fmt.Errorf("Read: %s: no such record", location)
 	} else if r.kind() != kindObject {
 		err = fmt.Errorf("Read: %s: not an object record", location)
@@ -34,33 +39,34 @@ func (f *InMemoryCache) Read(location string) (data []byte, err error) {
 	return
 }
 
-func (f *InMemoryCache) Exists(location string) bool {
-	r, ok := f.cache[location]
+func (m *InMemoryCache) Exists(location string) bool {
+	r, ok := m.cache[location]
 	return ok && r.kind() == kindObject
 }
 
-func (f *InMemoryCache) List(location string) (subkeys []string, err error) {
+func (m *InMemoryCache) List(location string) (subkeys []string, err error) {
 	if !strings.HasSuffix(location, "/") {
 		err = fmt.Errorf("List: %s: location does not identify a collection", location)
-	} else if r, ok := f.cache[location]; ok {
+	} else if r, ok := m.cache[location]; ok {
 		if r.kind() != kindCollection {
 			err = fmt.Errorf("List: %s: not a prefix record", location)
 		} else {
 			subkeys = r.(collectionRecord).subkeys
 		}
 	} else {
-		subkeys = make([]string, 0, len(f.cache))
-		for key := range f.cache {
+		subkeys = make([]string, 0, len(m.cache))
+		for key := range m.cache {
 			if strings.HasPrefix(key, location) {
 				subkeys = append(subkeys, key)
 			}
 		}
-		f.cache[location] = collectionRecord{subkeys: subkeys}
+		slices.Sort(subkeys)
+		m.cache[location] = collectionRecord{subkeys: subkeys}
 	}
 	return
 }
 
-func (f *InMemoryCache) ReadList(location string) ([]byte, error) {
+func (m *InMemoryCache) ReadList(location string) ([]byte, error) {
 	if !strings.HasSuffix(location, "/") {
 		return nil, fmt.Errorf("ReadList: %s: location does not identify a collection", location)
 	}
@@ -68,8 +74,8 @@ func (f *InMemoryCache) ReadList(location string) ([]byte, error) {
 	// Hydrate the file list if the data is not cached.
 	var subkeys []string
 	var err error
-	if r, ok := f.cache[location]; !ok {
-		subkeys, err = f.List(location)
+	if r, ok := m.cache[location]; !ok {
+		subkeys, err = m.List(location)
 		if err != nil {
 			return nil, err
 		}
@@ -86,43 +92,43 @@ func (f *InMemoryCache) ReadList(location string) ([]byte, error) {
 	delim := "["
 	for _, subkey := range subkeys {
 		buff.WriteString(delim)
-		buff.Write(f.cache[subkey].(objectRecord).data)
+		buff.Write(m.cache[subkey].(objectRecord).data)
 		delim = ","
 	}
 	buff.WriteString("]")
 
 	// Cache the result and return it
 	b := buff.Bytes()
-	f.cache[location] = collectionRecord{data: b, subkeys: subkeys}
+	m.cache[location] = collectionRecord{data: b, subkeys: subkeys}
 	return b, nil
 }
 
-func (f *InMemoryCache) Write(location string, data []byte) error {
+func (m *InMemoryCache) Write(location string, data []byte) error {
 	if strings.HasSuffix(location, "/") {
 		return fmt.Errorf("Write: %s: location does not identify an object", location)
 	}
 
-	f.cache[location] = objectRecord{data: data}
+	m.cache[location] = objectRecord{data: data}
 
 	// Invalidate any cached list
 	if parent := path.Dir(location); parent != "." {
-		delete(f.cache, parent+"/")
+		delete(m.cache, parent+"/")
 	}
 	return nil
 }
 
-func (f *InMemoryCache) Delete(location string) bool {
+func (m *InMemoryCache) Delete(location string) bool {
 	if strings.HasSuffix(location, "/") {
 		return false
 	}
 
 	// Record whether it exists, then delete it
-	_, ok := f.cache[location]
-	delete(f.cache, location)
+	_, ok := m.cache[location]
+	delete(m.cache, location)
 
 	// Invalidate any cached list
 	if parent := path.Dir(location); parent != "." {
-		delete(f.cache, parent+"/")
+		delete(m.cache, parent+"/")
 	}
 	return ok
 }

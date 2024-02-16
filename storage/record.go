@@ -6,6 +6,8 @@ const (
 	kindNone = iota
 	kindObject
 	kindCollection
+	kindLink
+	kindHole
 )
 
 type objectRecord struct {
@@ -17,6 +19,13 @@ type collectionRecord struct {
 	subkeys []string
 }
 
+type linkRecord struct {
+	layer    int
+	location string
+}
+
+type holeRecord struct{}
+
 type record interface {
 	kind() recordKind
 }
@@ -27,4 +36,12 @@ func (objectRecord) kind() recordKind {
 
 func (collectionRecord) kind() recordKind {
 	return kindCollection
+}
+
+func (linkRecord) kind() recordKind {
+	return kindLink
+}
+
+func (holeRecord) kind() recordKind {
+	return kindHole
 }

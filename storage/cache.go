@@ -10,6 +10,7 @@ type RCache interface {
 
 type RWCache interface {
 	RCache
+	Reset()
 	Write(location string, object []byte) error
 	Delete(location string) bool
 }

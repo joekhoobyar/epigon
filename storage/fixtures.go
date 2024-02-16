@@ -25,6 +25,10 @@ func (f *FixtureStorage) Clear() {
 	f.cache = map[string]record{}
 }
 
+func (f *FixtureStorage) Reset() {
+	// NO-OP: read-only storage
+}
+
 func (f *FixtureStorage) Read(location string) ([]byte, error) {
 	if strings.HasSuffix(location, "/") {
 		return nil, fmt.Errorf("Read: %s: location does not identify an object", location)
@@ -49,8 +53,15 @@ func (f *FixtureStorage) Read(location string) ([]byte, error) {
 }
 
 func (f *FixtureStorage) Exists(location string) bool {
-	r, ok := f.cache[location]
-	return ok && r.kind() == kindObject
+	if r, ok := f.cache[location]; ok {
+		return r.kind() == kindObject
+	} else if strings.HasSuffix(location, "/") {
+		return false
+	} else {
+		path := path.Join(f.Dir, location) + ".json"
+		_, err := os.Stat(path)
+		return err == nil
+	}
 }
 
 func (f *FixtureStorage) List(location string) ([]string, error) {

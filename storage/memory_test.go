@@ -11,8 +11,8 @@ var _ = Describe("InMemoryCache", func() {
 	var root, child1, child2 []byte
 	var err error
 
-	f := storage.NewInMemoryCache()
-	var c storage.RWCache = f // force breakage if we fail to implement the interface
+	m := storage.NewInMemoryCache()
+	var c storage.RWCache = m // force breakage if we fail to implement the interface
 
 	BeforeEach(func() {
 		c.Clear()
@@ -30,21 +30,21 @@ var _ = Describe("InMemoryCache", func() {
 	Describe("Reading locations", func() {
 
 		Context("that are objects", func() {
-			It("should load root", func() { Expect(f.Read("root")).To(Equal(root)) })
-			It("should load child1", func() { Expect(f.Read("root/child1")).To(Equal(child1)) })
-			It("should load child2", func() { Expect(f.Read("root/child2")).To(Equal(child2)) })
+			It("should load root", func() { Expect(m.Read("root")).To(Equal(root)) })
+			It("should load child1", func() { Expect(m.Read("root/child1")).To(Equal(child1)) })
+			It("should load child2", func() { Expect(m.Read("root/child2")).To(Equal(child2)) })
 		})
 
 		Context("that are lists", func() {
 			It("should report an error", func() {
-				_, err := f.Read("root/")
+				_, err := m.Read("root/")
 				Expect(err).To(MatchError(HaveSuffix(" location does not identify an object")))
 			})
 		})
 
 		Context("that do not exist", func() {
 			It("should report an error", func() {
-				_, err = f.Read("missing")
+				_, err = m.Read("missing")
 				Expect(err).To(MatchError(HaveSuffix(" no such record")))
 			})
 		})
@@ -53,16 +53,16 @@ var _ = Describe("InMemoryCache", func() {
 	Describe("Reading fixture lists", func() {
 		Context("that are objects", func() {
 			It("should report an error", func() {
-				_, err = f.ReadList("root/child1")
+				_, err = m.ReadList("root/child1")
 				Expect(err).To(MatchError(HaveSuffix(" location does not identify a collection")))
-				_, err = f.ReadList("root")
+				_, err = m.ReadList("root")
 				Expect(err).To(MatchError(HaveSuffix(" location does not identify a collection")))
 			})
 		})
 
 		Context("that are lists", func() {
 			It("should load as an array of immediate children", func() {
-				Expect(f.ReadList("root/")).To(Equal([]byte("[{\"name\":\"baby\"},{\"name\":\"kid\"}]")))
+				Expect(m.ReadList("root/")).To(Equal([]byte("[{\"name\":\"baby\"},{\"name\":\"kid\"}]")))
 			})
 		})
 	})
@@ -70,16 +70,70 @@ var _ = Describe("InMemoryCache", func() {
 	Describe("Listing fixture keys", func() {
 		Context("that are objects", func() {
 			It("should report an error", func() {
-				_, err = f.List("root/child1")
+				_, err = m.List("root/child1")
 				Expect(err).To(MatchError(HaveSuffix(" location does not identify a collection")))
-				_, err = f.List("root")
+				_, err = m.List("root")
 				Expect(err).To(MatchError(HaveSuffix(" location does not identify a collection")))
 			})
 		})
 
 		Context("that are lists", func() {
 			It("should list subkeys of immediate children", func() {
-				Expect(f.List("root/")).To(Equal([]string{"root/child1", "root/child2"}))
+				Expect(m.List("root/")).To(Equal([]string{"root/child1", "root/child2"}))
+			})
+		})
+	})
+
+	Describe("Writing locations", func() {
+		Context("that are objects", func() {
+			It("should be readable", func() {
+				expected := []byte("\"guy\"")
+				err := m.Write("other", expected)
+				Expect(err).NotTo(HaveOccurred())
+				actual, err := m.Read("other")
+				Expect(actual).To(Equal(expected))
+			})
+			It("should be listable", func() {
+				err := m.Write("root/other", []byte("\"guy\""))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(m.List("root/")).To(Equal([]string{"root/child1", "root/child2", "root/other"}))
+			})
+			It("should be readable as a JSON array", func() {
+				err := m.Write("root/other", []byte("\"guy\""))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(m.ReadList("root/")).To(Equal([]byte("[{\"name\":\"baby\"},{\"name\":\"kid\"},\"guy\"]")))
+			})
+		})
+
+		Context("that are lists", func() {
+			It("should report an error", func() {
+				err = m.Write("root/", []byte("\"a\""))
+				Expect(err).To(MatchError(HaveSuffix(" location does not identify an object")))
+				err = m.Write("other/", []byte("\"a\""))
+				Expect(err).To(MatchError(HaveSuffix(" location does not identify an object")))
+			})
+		})
+	})
+
+	Describe("Deleting locations", func() {
+		Context("that are objects", func() {
+			It("should succeed", func() {
+				expected := []byte("\"guy\"")
+				err := m.Write("other", expected)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(m.Delete("other")).To(BeTrue())
+			})
+		})
+
+		Context("that are missing", func() {
+			It("should fail", func() {
+				Expect(m.Delete("missing")).To(BeFalse())
+			})
+		})
+
+		Context("that are lists", func() {
+			It("should fail", func() {
+				Expect(m.Delete("root/")).To(BeFalse())
 			})
 		})
 	})
