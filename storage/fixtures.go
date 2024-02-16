@@ -27,7 +27,7 @@ func (f *FixtureStorage) Clear() {
 
 func (f *FixtureStorage) Read(location string) ([]byte, error) {
 	if strings.HasSuffix(location, "/") {
-		return nil, fmt.Errorf("Read: %s: location does not identiy an object", location)
+		return nil, fmt.Errorf("Read: %s: location does not identify an object", location)
 	}
 
 	if r, ok := f.cache[location]; ok {
@@ -56,7 +56,7 @@ func (f *FixtureStorage) Exists(location string) bool {
 func (f *FixtureStorage) List(location string) ([]string, error) {
 	subdir, has := strings.CutSuffix(location, "/")
 	if !has {
-		return nil, fmt.Errorf("Read: %s: location does not identiy a collection", location)
+		return nil, fmt.Errorf("List: %s: location does not identify a collection", location)
 	}
 
 	// Return the data if it is cached
@@ -91,7 +91,7 @@ func (f *FixtureStorage) List(location string) ([]string, error) {
 func (f *FixtureStorage) ReadList(location string) ([]byte, error) {
 	_, has := strings.CutSuffix(location, "/")
 	if !has {
-		return nil, fmt.Errorf("ReadList: %s: location does not identiy a collection", location)
+		return nil, fmt.Errorf("ReadList: %s: location does not identify a collection", location)
 	}
 
 	// Hydrate the file list if the data is not cached.

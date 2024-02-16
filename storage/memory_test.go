@@ -1,41 +1,38 @@
 package storage_test
 
 import (
-	"os"
-	"path"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github/joekhoobyar/wannabe/storage"
-	"github/joekhoobyar/wannabe/test"
 )
 
-var _ = Describe("FixtureStorage", func() {
+var _ = Describe("InMemoryCache", func() {
 	var root, child1, child2 []byte
 	var err error
 
-	dir := test.FixtureDir()
-	f := storage.NewFixtureStorage(dir)
-	var c storage.RCache = f // force breakage if we fail to implement the interface
+	f := storage.NewInMemoryCache()
+	var c storage.RWCache = f // force breakage if we fail to implement the interface
 
 	BeforeEach(func() {
 		c.Clear()
-
-		root, err = os.ReadFile(path.Join(dir, "root.json"))
+		root = []byte("{\"name\":\"root\"}")
+		err = c.Write("root", root)
 		Expect(err).NotTo(HaveOccurred())
-		child1, err = os.ReadFile(path.Join(dir, "root/child1.json"))
+		child1 = []byte("{\"name\":\"baby\"}")
+		err = c.Write("root/child1", child1)
 		Expect(err).NotTo(HaveOccurred())
-		child2, err = os.ReadFile(path.Join(dir, "root/child2.json"))
+		child2 = []byte("{\"name\":\"kid\"}")
+		err = c.Write("root/child2", child2)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	Describe("Reading fixtures", func() {
+	Describe("Reading locations", func() {
 
 		Context("that are objects", func() {
-			It("should load root.json", func() { Expect(f.Read("root")).To(Equal(root)) })
-			It("should load root/child1.json", func() { Expect(f.Read("root/child1")).To(Equal(child1)) })
-			It("should load root/child2.json", func() { Expect(f.Read("root/child2")).To(Equal(child2)) })
+			It("should load root", func() { Expect(f.Read("root")).To(Equal(root)) })
+			It("should load child1", func() { Expect(f.Read("root/child1")).To(Equal(child1)) })
+			It("should load child2", func() { Expect(f.Read("root/child2")).To(Equal(child2)) })
 		})
 
 		Context("that are lists", func() {
@@ -48,7 +45,7 @@ var _ = Describe("FixtureStorage", func() {
 		Context("that do not exist", func() {
 			It("should report an error", func() {
 				_, err = f.Read("missing")
-				Expect(err).To(MatchError(HaveSuffix(" no such file or directory")))
+				Expect(err).To(MatchError(HaveSuffix(" no such record")))
 			})
 		})
 	})
