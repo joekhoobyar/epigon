@@ -2,7 +2,6 @@ package storage
 
 import (
 	"bytes"
-	"fmt"
 	"path"
 	"slices"
 	"strings"
@@ -28,11 +27,11 @@ func (m *InMemoryCache) Reset() {
 
 func (m *InMemoryCache) Read(location string) (data []byte, err error) {
 	if strings.HasSuffix(location, "/") {
-		err = fmt.Errorf("Read: %s: location does not identify an object", location)
+		err = newError(location, ErrLocationNotObject)
 	} else if r, ok := m.cache[location]; !ok {
-		err = fmt.Errorf("Read: %s: no such record", location)
+		err = newError(location, ErrObjectNotFound)
 	} else if r.kind() != kindObject {
-		err = fmt.Errorf("Read: %s: not an object record", location)
+		err = newError(location, ErrKindNotObject)
 	} else {
 		data = r.(objectRecord).data
 	}
@@ -45,15 +44,25 @@ func (m *InMemoryCache) Exists(location string) bool {
 }
 
 func (m *InMemoryCache) List(location string) (subkeys []string, err error) {
-	if !strings.HasSuffix(location, "/") {
-		err = fmt.Errorf("List: %s: location does not identify a collection", location)
+	if subdir, ok := strings.CutSuffix(location, "/"); !ok {
+		err = newError(location, ErrLocationNotPrefix)
 	} else if r, ok := m.cache[location]; ok {
 		if r.kind() != kindCollection {
-			err = fmt.Errorf("List: %s: not a prefix record", location)
+			err = newError(location, ErrKindNotPrefix)
 		} else {
 			subkeys = r.(collectionRecord).subkeys
 		}
 	} else {
+		// Workaround since in-memory caches cannot test directory presence.
+		// Test for parent key existence instead.
+		parent := path.Dir(subdir)
+		if parent != "." {
+			if _, ok := m.cache[parent]; !ok {
+				err = newError(location, ErrPrefixNotFound)
+				return
+			}
+		}
+
 		subkeys = make([]string, 0, len(m.cache))
 		for key := range m.cache {
 			if strings.HasPrefix(key, location) {
@@ -68,7 +77,7 @@ func (m *InMemoryCache) List(location string) (subkeys []string, err error) {
 
 func (m *InMemoryCache) ReadList(location string) ([]byte, error) {
 	if !strings.HasSuffix(location, "/") {
-		return nil, fmt.Errorf("ReadList: %s: location does not identify a collection", location)
+		return nil, newError(location, ErrLocationNotPrefix)
 	}
 
 	// Hydrate the file list if the data is not cached.
@@ -80,7 +89,7 @@ func (m *InMemoryCache) ReadList(location string) ([]byte, error) {
 			return nil, err
 		}
 	} else if r.kind() != kindCollection {
-		return nil, fmt.Errorf("ReadList: %s: not a prefix record", location)
+		return nil, newError(location, ErrKindNotPrefix)
 	} else if r.(collectionRecord).data != nil {
 		return r.(collectionRecord).data, nil
 	} else {
@@ -89,11 +98,12 @@ func (m *InMemoryCache) ReadList(location string) ([]byte, error) {
 
 	// Build an object record for this collection.
 	buff := bytes.Buffer{}
-	delim := "["
-	for _, subkey := range subkeys {
-		buff.WriteString(delim)
+	buff.WriteString("[")
+	for i, subkey := range subkeys {
+		if i > 0 {
+			buff.WriteString(",")
+		}
 		buff.Write(m.cache[subkey].(objectRecord).data)
-		delim = ","
 	}
 	buff.WriteString("]")
 
@@ -105,7 +115,7 @@ func (m *InMemoryCache) ReadList(location string) ([]byte, error) {
 
 func (m *InMemoryCache) Write(location string, data []byte) error {
 	if strings.HasSuffix(location, "/") {
-		return fmt.Errorf("Write: %s: location does not identify an object", location)
+		return newError(location, ErrLocationNotObject)
 	}
 
 	m.cache[location] = objectRecord{data: data}

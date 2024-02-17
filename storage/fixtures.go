@@ -2,8 +2,6 @@ package storage
 
 import (
 	"bytes"
-	"fmt"
-	"log"
 	"os"
 	"path"
 	"strings"
@@ -31,12 +29,12 @@ func (f *FixtureStorage) Reset() {
 
 func (f *FixtureStorage) Read(location string) ([]byte, error) {
 	if strings.HasSuffix(location, "/") {
-		return nil, fmt.Errorf("Read: %s: location does not identify an object", location)
+		return nil, newError(location, ErrLocationNotObject)
 	}
 
 	if r, ok := f.cache[location]; ok {
 		if r.kind() != kindObject {
-			return nil, fmt.Errorf("Read: %s: not an object record", location)
+			return nil, newError(location, ErrKindNotObject)
 		}
 		return r.(objectRecord).data, nil
 	}
@@ -44,7 +42,7 @@ func (f *FixtureStorage) Read(location string) ([]byte, error) {
 	path := path.Join(f.Dir, location) + ".json"
 	buff, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("Read: %s: readfile: %s", location, err)
+		return nil, wrapFailure(err, location)
 	}
 
 	// cache the result and return it
@@ -67,13 +65,13 @@ func (f *FixtureStorage) Exists(location string) bool {
 func (f *FixtureStorage) List(location string) ([]string, error) {
 	subdir, has := strings.CutSuffix(location, "/")
 	if !has {
-		return nil, fmt.Errorf("List: %s: location does not identify a collection", location)
+		return nil, newError(location, ErrLocationNotPrefix)
 	}
 
 	// Return the data if it is cached
 	if r, ok := f.cache[location]; ok {
 		if r.kind() != kindCollection {
-			return nil, fmt.Errorf("List: %s: not a prefix record", location)
+			return nil, newError(location, ErrKindNotPrefix)
 		}
 		return r.(collectionRecord).subkeys, nil
 	}
@@ -81,8 +79,10 @@ func (f *FixtureStorage) List(location string) ([]string, error) {
 	// List files
 	dir := path.Join(f.Dir, subdir)
 	files, err := os.ReadDir(dir)
-	if err != nil && !os.IsNotExist(err) {
-		log.Panicf("readdir: %s: %s", location, err)
+	if os.IsNotExist(err) {
+		return nil, wrapError(err, location, ErrPrefixNotFound)
+	} else if err != nil {
+		return nil, wrapFailure(err, location)
 	}
 
 	// Cache the list of JSON files
@@ -102,7 +102,7 @@ func (f *FixtureStorage) List(location string) ([]string, error) {
 func (f *FixtureStorage) ReadList(location string) ([]byte, error) {
 	_, has := strings.CutSuffix(location, "/")
 	if !has {
-		return nil, fmt.Errorf("ReadList: %s: location does not identify a collection", location)
+		return nil, newError(location, ErrLocationNotPrefix)
 	}
 
 	// Hydrate the file list if the data is not cached.
@@ -114,7 +114,7 @@ func (f *FixtureStorage) ReadList(location string) ([]byte, error) {
 			return nil, err
 		}
 	} else if r.kind() != kindCollection {
-		return nil, fmt.Errorf("ReadList: %s: not a prefix record", location)
+		return nil, newError(location, ErrKindNotPrefix)
 	} else if r.(collectionRecord).data != nil {
 		return r.(collectionRecord).data, nil
 	} else {
@@ -123,15 +123,16 @@ func (f *FixtureStorage) ReadList(location string) ([]byte, error) {
 
 	// Build an object record for this collection.
 	buff := bytes.Buffer{}
-	delim := "["
-	for _, subkey := range subkeys {
-		buff.WriteString(delim)
+	buff.WriteString("[")
+	for i, subkey := range subkeys {
+		if i > 0 {
+			buff.WriteString(",")
+		}
 		data, err := f.Read(subkey)
 		if err != nil {
 			return nil, err
 		}
 		buff.Write(data)
-		delim = ","
 	}
 	buff.WriteString("]")
 

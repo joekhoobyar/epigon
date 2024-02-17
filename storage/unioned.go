@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -39,21 +40,21 @@ func (u *UnionedCache) readFrom(link linkRecord) ([]byte, error) {
 	case 1:
 		return u.temp.Read(link.location)
 	default:
-		return nil, fmt.Errorf("Read: %s: no such layer %d", link.location, link.layer)
+		return nil, wrapFailure(fmt.Errorf("readFrom: no such layer %d", link.layer), link.location)
 	}
 }
 
 func (u *UnionedCache) Read(location string) (data []byte, err error) {
 	if strings.HasSuffix(location, "/") {
-		err = fmt.Errorf("Read: %s: location does not identify an object", location)
+		err = newError(location, ErrLocationNotObject)
 	} else if r, ok := u.cache[location]; ok {
 		switch r.kind() {
 		case kindHole:
-			err = fmt.Errorf("Read: %s: no such record", location)
+			err = newError(location, ErrObjectNotFound)
 		case kindLink:
 			data, err = u.readFrom(r.(linkRecord))
 		default:
-			err = fmt.Errorf("Read: %s: not a link or hole record", location)
+			err = wrapFailure(errors.New("not a link or hole record"), location)
 		}
 	} else if data, err = u.temp.Read(location); err == nil {
 		u.cache[location] = linkRecord{layer: 1, location: location}
@@ -78,10 +79,10 @@ func (u *UnionedCache) Exists(location string) bool {
 
 func (u *UnionedCache) List(location string) (subkeys []string, err error) {
 	if !strings.HasSuffix(location, "/") {
-		err = fmt.Errorf("List: %s: location does not identify a collection", location)
+		err = newError(location, ErrLocationNotPrefix)
 	} else if r, ok := u.cache[location]; ok {
 		if r.kind() != kindCollection {
-			err = fmt.Errorf("List: %s: not a prefix record", location)
+			err = newError(location, ErrKindNotPrefix)
 		} else {
 			subkeys = r.(collectionRecord).subkeys
 		}
@@ -102,7 +103,7 @@ func (u *UnionedCache) List(location string) (subkeys []string, err error) {
 
 func (u *UnionedCache) ReadList(location string) ([]byte, error) {
 	if !strings.HasSuffix(location, "/") {
-		return nil, fmt.Errorf("ReadList: %s: location does not identify a collection", location)
+		return nil, newError(location, ErrLocationNotPrefix)
 	}
 
 	// Hydrate the file list if the data is not cached.
@@ -114,7 +115,7 @@ func (u *UnionedCache) ReadList(location string) ([]byte, error) {
 			return nil, err
 		}
 	} else if r.kind() != kindCollection {
-		return nil, fmt.Errorf("ReadList: %s: not a prefix record", location)
+		return nil, newError(location, ErrKindNotPrefix)
 	} else if r.(collectionRecord).data != nil {
 		return r.(collectionRecord).data, nil
 	} else {
@@ -123,15 +124,16 @@ func (u *UnionedCache) ReadList(location string) ([]byte, error) {
 
 	// Build an object record for this collection.
 	buff := bytes.Buffer{}
-	delim := "["
-	for _, subkey := range subkeys {
-		buff.WriteString(delim)
+	buff.WriteString("[")
+	for i, subkey := range subkeys {
+		if i > 0 {
+			buff.WriteString(",")
+		}
 		data, err := u.Read(subkey)
 		if err != nil {
 			return nil, err
 		}
 		buff.Write(data)
-		delim = ","
 	}
 	buff.WriteString("]")
 
@@ -143,7 +145,7 @@ func (u *UnionedCache) ReadList(location string) ([]byte, error) {
 
 func (u *UnionedCache) Write(location string, data []byte) (err error) {
 	if strings.HasSuffix(location, "/") {
-		err = fmt.Errorf("Write: %s: location does not identify an object", location)
+		err = newError(location, ErrLocationNotObject)
 	} else if err = u.temp.Write(location, data); err == nil {
 		// Record the link
 		if _, ok := u.cache[location]; !ok {

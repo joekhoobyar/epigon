@@ -56,7 +56,7 @@ var _ = Describe("UnionedCache", func() {
 			It("should report an error", func() {
 				Expect(u.Delete("root")).To(BeTrue())
 				_, err = u.Read("root")
-				Expect(err).To(MatchError(HaveSuffix(" no such record")))
+				Expect(err).To(MatchError(HaveSuffix(" no such object record")))
 			})
 		})
 	})
@@ -80,6 +80,9 @@ var _ = Describe("UnionedCache", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(u.ReadList("root/")).To(Equal([]byte("[{\"name\":\"baby\"},{\"name\":\"kid\"},{\"name\":\"headed\"}]")))
 			})
+			It("should load empty lists", func() {
+				Expect(u.ReadList("root/child2/nest/")).To(Equal([]byte("[]")))
+			})
 		})
 	})
 
@@ -101,6 +104,9 @@ var _ = Describe("UnionedCache", func() {
 				err = u.Write("root/stepchild", []byte("{\"name\":\"headed\"}"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(u.List("root/")).To(Equal([]string{"root/child1", "root/child2", "root/stepchild"}))
+			})
+			It("should load empty lists", func() {
+				Expect(u.List("root/child2/nest/")).To(Equal([]string{}))
 			})
 		})
 	})

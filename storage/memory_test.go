@@ -45,7 +45,7 @@ var _ = Describe("InMemoryCache", func() {
 		Context("that do not exist", func() {
 			It("should report an error", func() {
 				_, err = m.Read("missing")
-				Expect(err).To(MatchError(HaveSuffix(" no such record")))
+				Expect(err).To(MatchError(HaveSuffix(" no such object record")))
 			})
 		})
 	})
@@ -64,6 +64,13 @@ var _ = Describe("InMemoryCache", func() {
 			It("should load as an array of immediate children", func() {
 				Expect(m.ReadList("root/")).To(Equal([]byte("[{\"name\":\"baby\"},{\"name\":\"kid\"}]")))
 			})
+			It("should load empty lists", func() {
+				Expect(m.ReadList("root/child2/nest/")).To(Equal([]byte("[]")))
+			})
+			It("should fail on missing parent records", func() {
+				Expect(m.ReadList("root/child2/nester/")).Error().NotTo(HaveOccurred())
+				Expect(m.ReadList("root/child3/nest/")).Error().To(HaveOccurred())
+			})
 		})
 	})
 
@@ -80,6 +87,13 @@ var _ = Describe("InMemoryCache", func() {
 		Context("that are lists", func() {
 			It("should list subkeys of immediate children", func() {
 				Expect(m.List("root/")).To(Equal([]string{"root/child1", "root/child2"}))
+			})
+			It("should load empty lists", func() {
+				Expect(m.List("root/child2/nest/")).To(Equal([]string{}))
+			})
+			It("should fail on missing parent records", func() {
+				Expect(m.List("root/child2/nester/")).Error().NotTo(HaveOccurred())
+				Expect(m.List("root/child3/nest/")).Error().To(HaveOccurred())
 			})
 		})
 	})

@@ -67,6 +67,13 @@ var _ = Describe("FixtureStorage", func() {
 			It("should load as an array of immediate children", func() {
 				Expect(f.ReadList("root/")).To(Equal([]byte("[{\"name\":\"baby\"},{\"name\":\"kid\"}]")))
 			})
+			It("should load empty lists", func() {
+				Expect(f.ReadList("root/child2/nest/")).To(Equal([]byte("[]")))
+			})
+			It("should fail on missing directories", func() {
+				Expect(f.ReadList("root/child2/nester/")).Error().To(HaveOccurred())
+				Expect(f.ReadList("root/child3/nest/")).Error().To(HaveOccurred())
+			})
 		})
 	})
 
@@ -83,6 +90,13 @@ var _ = Describe("FixtureStorage", func() {
 		Context("that are lists", func() {
 			It("should list subkeys of immediate children", func() {
 				Expect(f.List("root/")).To(Equal([]string{"root/child1", "root/child2"}))
+			})
+			It("should load empty lists", func() {
+				Expect(f.List("root/child2/nest/")).To(Equal([]string{}))
+			})
+			It("should fail on missing directories", func() {
+				Expect(f.List("root/child2/nester/")).Error().To(HaveOccurred())
+				Expect(f.List("root/child3/nest/")).Error().To(HaveOccurred())
 			})
 		})
 	})
