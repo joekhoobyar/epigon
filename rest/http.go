@@ -38,20 +38,6 @@ func (srv *Server) defaultNotFound(w http.ResponseWriter, rq *http.Request) {
 	w.Write([]byte(fmt.Sprint("No route matches", m, p))) // nolint
 }
 
-func LocateResource(route string, params httprouter.Params) (location string, err error) {
-	route = routerParamRegexp.ReplaceAllStringFunc(route, func(match string) string {
-		value := params.ByName(match[1:])
-		if value == "" {
-			err = fmt.Errorf("LocateResource: %s: no such path parameter", match)
-		}
-		return value
-	})
-	if err == nil {
-		location = route
-	}
-	return
-}
-
 func buildServer(options Options) *Server {
 	router := httprouter.New()
 
