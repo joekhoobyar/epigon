@@ -38,7 +38,7 @@ func (srv *Server) defaultNotFound(w http.ResponseWriter, rq *http.Request) {
 	w.Write([]byte(fmt.Sprint("No route matches", m, p))) // nolint
 }
 
-func buildServer(options Options) *Server {
+func NewServer(options Options) *Server {
 	router := httprouter.New()
 
 	server := &Server{
