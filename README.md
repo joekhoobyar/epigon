@@ -1,4 +1,4 @@
-[![test](https://github.com/joekhoobyar/epigon/workflows/test/badge.svg?branch=master)](https://github.com/joekhoobyar/epigon/actions?query=workflow%3Atest+branch%3Amaster)
+[![test](https://github.com/joekhoobyar/epigon/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/joekhoobyar/epigon/actions?query=workflow%3Atest+branch%3Amaster)
 
 --- 
 
