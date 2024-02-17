@@ -69,3 +69,26 @@ func (svc *Service) List(route string) httprouter.Handle {
 		svc.defaultError(w, r, ps, err)
 	}
 }
+
+func (svc *Service) Get(route, idParam string) httprouter.Handle {
+	route, _ = strings.CutSuffix(route, "/")
+
+	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		var location string
+		var buff []byte
+		var err error
+
+		id := ps.ByName(idParam)
+
+		if location, err = LocateResource(route, ps); err == nil {
+			location += "/" + id
+			if buff, err = svc.store.Read(location); err == nil {
+				w.WriteHeader(200)
+				w.Write(buff) // nolint
+				return
+			}
+		}
+
+		svc.defaultError(w, r, ps, err)
+	}
+}

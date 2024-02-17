@@ -87,16 +87,22 @@ func (u *UnionedCache) List(location string) (subkeys []string, err error) {
 			subkeys = r.(collectionRecord).subkeys
 		}
 	} else {
-		basekeys, baseerr := u.base.List(location)
-		tempkeys, temperr := u.temp.List(location)
+		var basekeys, tempkeys []string
+		var baseerr error
+		basekeys, baseerr = u.base.List(location)
+		tempkeys, err = u.temp.List(location)
 
-		if (baseerr == nil && (temperr == nil || IsPrefixNotFound(temperr))) ||
-			(temperr == nil && (baseerr == nil || IsPrefixNotFound(baseerr))) {
+		if (baseerr == nil && (err == nil || IsPrefixNotFound(err))) ||
+			(err == nil && (baseerr == nil || IsPrefixNotFound(baseerr))) {
 
 			subkeys = make([]string, 0, len(basekeys)+len(tempkeys))
 			subkeys = append(subkeys, basekeys...)
 			subkeys = append(subkeys, tempkeys...)
 			u.cache[location] = collectionRecord{subkeys: subkeys}
+
+			err = nil
+		} else if err == nil {
+			err = baseerr
 		}
 	}
 	return
