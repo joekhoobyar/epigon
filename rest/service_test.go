@@ -1,6 +1,7 @@
 package rest_test
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,19 @@ import (
 	"github/joekhoobyar/epigon/storage"
 	"github/joekhoobyar/epigon/test"
 )
+
+type named struct {
+	Name string `json:"name,omitempty"`
+}
+type namedAdapter struct{}
+
+func (*namedAdapter) New() any { return &named{} }
+
+func (*namedAdapter) Convert(rq *http.Request, source any) (id string, target any, err error) {
+	id = source.(*named).Name
+	target = &named{Name: id}
+	return
+}
 
 var _ = Describe("Service", func() {
 
@@ -59,9 +73,13 @@ var _ = Describe("Service", func() {
 		store := storage.NewUnionedCache(test.FixtureDir())
 
 		BeforeEach(func() {
-			store.Clear()
-			svc = rest.NewService(store)
 			w = httptest.NewRecorder()
+
+			store.Clear()
+
+			svc = rest.NewService(store)
+			err := svc.Adapt("root", &namedAdapter{})
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		Context("List()", func() {
@@ -198,5 +216,30 @@ var _ = Describe("Service", func() {
 
 		})
 
+		Context("Write()", func() {
+			var hndl httprouter.Handle
+
+			It("should write resources", func() {
+				hndl = svc.Write("root", false)
+				ps = httprouter.Params{}
+
+				buff := []byte("{\"name\":\"child3\"}")
+				body := bytes.NewReader(buff)
+
+				rq = httptest.NewRequest("POST", "/root", body)
+				hndl(w, rq, ps)
+				rp = w.Result()
+				Expect(rp.StatusCode).To(Equal(200))
+
+				stored, err := store.Read("root/child3")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(stored).To(Equal(buff))
+
+				actual, err := io.ReadAll(rp.Body)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(actual).To(Equal(buff))
+			})
+
+		})
 	})
 })

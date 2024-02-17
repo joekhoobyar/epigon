@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"fmt"
 	"github/joekhoobyar/epigon/storage"
 	"net/http"
@@ -19,12 +20,13 @@ type Service struct {
 
 type ResourceAdapter interface {
 	New() any
-	Convert(rq http.Request, source any) (id string, target any, err error)
+	Convert(rq *http.Request, source any) (id string, target any, err error)
 }
 
 func NewService(store storage.RWCache) *Service {
 	return &Service{
 		store:        store,
+		resource:     map[string]ResourceAdapter{},
 		defaultError: defaultErrorHandler,
 	}
 }
@@ -44,6 +46,15 @@ func LocateResource(route string, params httprouter.Params) (location string, er
 	})
 	if err == nil {
 		location = route
+	}
+	return
+}
+
+func (svc *Service) Adapt(route string, adapter ResourceAdapter) (err error) {
+	if _, ok := svc.resource[route]; ok {
+		err = fmt.Errorf("%s: resource already configured", route)
+	} else {
+		svc.resource[route] = adapter
 	}
 	return
 }
@@ -90,5 +101,37 @@ func (svc *Service) Get(route, idParam string) httprouter.Handle {
 		}
 
 		svc.defaultError(w, r, ps, err)
+	}
+}
+
+func (svc *Service) Write(route string, empty bool) httprouter.Handle {
+	route, _ = strings.CutSuffix(route, "/")
+
+	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		var location, id string
+		var buff []byte
+		var err error
+		var in, out any
+
+		resource := svc.resource[route]
+
+		if location, err = LocateResource(route, ps); err == nil {
+
+			in = resource.New()
+			if err = unmarshall(r, in); err == nil {
+				if id, out, err = resource.Convert(r, in); err == nil {
+					location += "/" + id
+					if buff, err = json.Marshal(out); err == nil {
+						if err = svc.store.Write(location, buff); err == nil {
+							w.WriteHeader(200)
+							if !empty {
+								w.Write(buff) // nolint
+							}
+							return
+						}
+					}
+				}
+			}
+		}
 	}
 }
