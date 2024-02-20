@@ -32,8 +32,15 @@ func NewService(store storage.RWCache) *Service {
 }
 
 func defaultErrorHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params, err error) {
+	var msg string
 	w.WriteHeader(599)
-	w.Write([]byte(err.Error())) // nolint
+	if err != nil {
+		msg = err.Error()
+	}
+	if msg == "" {
+		msg = "unexpected error"
+	}
+	w.Write([]byte(msg)) // nolint
 }
 
 func LocateResource(route string, params httprouter.Params) (location string, err error) {
@@ -133,5 +140,30 @@ func (svc *Service) Write(route string, empty bool) httprouter.Handle {
 				}
 			}
 		}
+	}
+}
+
+func (svc *Service) Delete(route, idParam string, empty bool) httprouter.Handle {
+	route, _ = strings.CutSuffix(route, "/")
+
+	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		var location string
+		var buff []byte
+		var err error
+
+		id := ps.ByName(idParam)
+
+		if location, err = LocateResource(route, ps); err == nil {
+			location += "/" + id
+			if existed := svc.store.Delete(location); existed {
+				w.WriteHeader(204)
+				w.Write(buff) // nolint
+				return
+			} else {
+				err = fmt.Errorf("%s: not found", location)
+			}
+		}
+
+		svc.defaultError(w, r, ps, err)
 	}
 }

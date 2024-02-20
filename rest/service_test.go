@@ -241,5 +241,25 @@ var _ = Describe("Service", func() {
 			})
 
 		})
+
+		Context("Delete()", func() {
+			var hndl httprouter.Handle
+
+			It("should delete resources", func() {
+				hndl = svc.Delete("root", "childId", true)
+				ps = httprouter.Params{
+					httprouter.Param{Key: "childId", Value: "child2"},
+				}
+
+				rq = httptest.NewRequest("DELETE", "/root/child2", nil)
+				hndl(w, rq, ps)
+				rp = w.Result()
+				Expect(rp.StatusCode).To(Equal(204))
+
+				_, err := store.Read("root/child2")
+				Expect(err).To(HaveOccurred())
+			})
+
+		})
 	})
 })
