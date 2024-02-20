@@ -2,10 +2,12 @@ package rest
 
 import (
 	"fmt"
+	"github/joekhoobyar/epigon/storage"
 	"log"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -51,4 +53,18 @@ func NewServer(options Options) *Server {
 	router.NotFound = http.HandlerFunc(server.defaultNotFound)
 
 	return server
+}
+
+func (srv *Server) BuildService(root string, store storage.RWCache) *ServiceBuilder {
+	if !strings.HasSuffix(root, "/") {
+		root += "/"
+	}
+	return &ServiceBuilder{
+		store:        store,
+		server:       srv,
+		root:         root,
+		routes:       []serviceRoute{},
+		resource:     map[string]ResourceAdapter{},
+		defaultError: defaultErrorHandler,
+	}
 }
