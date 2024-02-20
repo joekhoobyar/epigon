@@ -17,15 +17,13 @@ var (
 )
 
 type Options struct {
-	LogPrefix   string
-	FixturePath string
+	LogPrefix string
 }
 
 type Server struct {
-	logPrefix   string
-	fixturePath string
-	Server      *httptest.Server
-	Router      *httprouter.Router
+	logPrefix string
+	Server    *httptest.Server
+	Router    *httprouter.Router
 }
 
 func (srv *Server) defaultNotFound(w http.ResponseWriter, rq *http.Request) {
@@ -44,10 +42,9 @@ func NewServer(options Options) *Server {
 	router := httprouter.New()
 
 	server := &Server{
-		logPrefix:   options.LogPrefix,
-		fixturePath: options.FixturePath,
-		Server:      httptest.NewServer(router),
-		Router:      router,
+		logPrefix: options.LogPrefix,
+		Server:    httptest.NewServer(router),
+		Router:    router,
 	}
 
 	router.NotFound = http.HandlerFunc(server.defaultNotFound)
