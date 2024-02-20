@@ -59,7 +59,7 @@ func (r *resourceAdapter) Convert(rq *http.Request, source any) (id string, targ
 }
 
 func (b *ServiceBuilder) addResource(location string, adapter ResourceAdapter) (err error) {
-	if _, ok := b.resource[location]; !ok {
+	if _, ok := b.resource[location]; ok {
 		err = fmt.Errorf("%s: resource adapter already configured", location)
 	} else {
 		b.resource[location] = adapter
