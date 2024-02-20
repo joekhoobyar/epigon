@@ -28,6 +28,21 @@ func (*namedAdapter) Convert(rq *http.Request, source any) (id string, target an
 	return
 }
 
+type limb struct {
+	Limb string `json:"limb,omitempty"`
+	Side string `json:"side,omitempty"`
+}
+type limbAdapter struct{}
+
+func (*limbAdapter) New() any { return &limb{} }
+
+func (*limbAdapter) Convert(rq *http.Request, source any) (id string, target any, err error) {
+	in := source.(*limb)
+	id = in.Limb
+	target = &limb{Limb: id, Side: in.Side}
+	return
+}
+
 var _ = Describe("Service", func() {
 
 	Describe("Locating a resource", func() {
